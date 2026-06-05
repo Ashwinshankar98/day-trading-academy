@@ -6560,7 +6560,7 @@ function calcPosition() {
   </div>`;
 }
 
-/* ── PINE SCRIPT v2 ── */
+/* ── PINE SCRIPT v2 (fixed: no multi-line expressions) ── */
 const PINE_V2 = `//@version=5
 strategy("DTA Pro — EMA RSI Momentum v2.0",
      overlay=true, shorttitle="DTA-Pro",
@@ -6571,27 +6571,26 @@ strategy("DTA Pro — EMA RSI Momentum v2.0",
 // ════════════════════════════════════════════
 // INPUTS
 // ════════════════════════════════════════════
-g_ema = "📊 EMA Settings"
-fastLen  = input.int(9,   "Fast EMA",          group=g_ema, minval=1)
-slowLen  = input.int(21,  "Slow EMA",          group=g_ema, minval=1)
-trendLen = input.int(50,  "Trend Filter EMA",  group=g_ema, minval=1)
+g_ema = "EMA Settings"
+fastLen  = input.int(9,    "Fast EMA",          group=g_ema, minval=1)
+slowLen  = input.int(21,   "Slow EMA",          group=g_ema, minval=1)
+trendLen = input.int(50,   "Trend Filter EMA",  group=g_ema, minval=1)
 
-g_flt = "🔍 Signal Filters"
-rsiLen  = input.int(14,   "RSI Period",        group=g_flt, minval=2)
-rsiOB   = input.int(70,   "RSI Overbought",    group=g_flt, minval=50, maxval=95)
-rsiOS   = input.int(30,   "RSI Oversold",      group=g_flt, minval=5,  maxval=45)
-volMult = input.float(1.5,"Volume Filter x",   group=g_flt, minval=1.0, step=0.1)
-useTrend= input.bool(true, "Trend Filter (above EMA50 for longs)", group=g_flt)
-useSess = input.bool(true, "Session Filter (9:30-16:00 ET only)", group=g_flt)
+g_flt = "Signal Filters"
+rsiLen   = input.int(14,   "RSI Period",        group=g_flt, minval=2)
+rsiOB    = input.int(70,   "RSI Overbought",    group=g_flt, minval=50, maxval=95)
+rsiOS    = input.int(30,   "RSI Oversold",      group=g_flt, minval=5,  maxval=45)
+volMult  = input.float(1.5,"Volume Filter x",   group=g_flt, minval=1.0, step=0.1)
+useTrend = input.bool(true, "Trend Filter (price above EMA50 for longs)", group=g_flt)
+useSess  = input.bool(true, "Session Filter (9:30-16:00 ET)", group=g_flt)
 
-g_risk = "🛡️ Risk Management"
-atrLen  = input.int(14,   "ATR Period",        group=g_risk, minval=1)
-slMult  = input.float(1.5,"Stop Loss (ATR x)", group=g_risk, minval=0.5, step=0.1)
-tpMult  = input.float(2.0,"Take Profit R:R",   group=g_risk, minval=1.0, step=0.1)
+g_risk = "Risk Management"
+atrLen  = input.int(14,    "ATR Period",        group=g_risk, minval=1)
+slMult  = input.float(1.5, "Stop Loss (ATR x)", group=g_risk, minval=0.5, step=0.1)
+tpMult  = input.float(2.0, "Take Profit R:R",   group=g_risk, minval=1.0, step=0.1)
 
-g_dir = "⚙️ Direction"
-tradeDir= input.string("Both","Trade Direction",
-          options=["Both","Long Only","Short Only"], group=g_dir)
+g_dir = "Direction"
+tradeDir = input.string("Both", "Trade Direction", options=["Both", "Long Only", "Short Only"], group=g_dir)
 
 // ════════════════════════════════════════════
 // INDICATORS
@@ -6604,24 +6603,18 @@ atr      = ta.atr(atrLen)
 avgVol   = ta.sma(volume, 20)
 
 // ════════════════════════════════════════════
-// CONDITIONS
+// CONDITIONS  (each on its own line — no multi-line breaks)
 // ════════════════════════════════════════════
-// Session: 9:30 AM - 4:00 PM ET
-inSess   = not useSess or
-           (hour >= 9 and (hour > 9 or minute >= 30) and hour < 16)
-
-// Trend bias: only long above EMA50, short below
+inHours  = hour >= 9 and (hour > 9 or minute >= 30) and hour < 16
+inSess   = not useSess or inHours
 bullBias = not useTrend or close > trendEMA
 bearBias = not useTrend or close < trendEMA
-
-// Volume confirmation
 highVol  = volume > avgVol * volMult
+notShort = tradeDir != "Short Only"
+notLong  = tradeDir != "Long Only"
 
-// Final entry conditions (ALL must be true)
-longCond  = ta.crossover(fastEMA, slowEMA)  and rsi < rsiOB and
-            highVol and bullBias and inSess  and tradeDir != "Short Only"
-shortCond = ta.crossunder(fastEMA, slowEMA) and rsi > rsiOS and
-            highVol and bearBias and inSess  and tradeDir != "Long Only"
+longCond  = ta.crossover(fastEMA, slowEMA) and rsi < rsiOB and highVol and bullBias and inSess and notShort
+shortCond = ta.crossunder(fastEMA, slowEMA) and rsi > rsiOS and highVol and bearBias and inSess and notLong
 
 // ════════════════════════════════════════════
 // STRATEGY EXECUTION
@@ -6656,9 +6649,8 @@ plotshape(shortCond, "Sell Signal", shape.triangledown,
           location.abovebar, color.new(color.red,   0), size=size.small)
 
 // Background shading while in a position
-bgcolor(strategy.position_size > 0 ? color.new(color.green, 93) :
-        strategy.position_size < 0 ? color.new(color.red,   93) : na,
-        title="Position Background")
+posBg = strategy.position_size > 0 ? color.new(color.green, 93) : strategy.position_size < 0 ? color.new(color.red, 93) : na
+bgcolor(posBg, title="Position Background")
 
 // ════════════════════════════════════════════
 // LIVE TRADE LEVELS (SL / TP / Entry lines)
@@ -6694,34 +6686,36 @@ var table tbl = table.new(position.top_right, 2, 8,
      border_color=color.new(color.gray, 80))
 
 if barstate.islast
-    nt  = strategy.closedtrades.count()
-    wr  = nt > 0 ? strategy.wintrades / nt * 100.0 : 0.0
-    pos = strategy.position_size > 0 ? "LONG" :
-          strategy.position_size < 0 ? "SHORT" : "FLAT"
-    pc  = strategy.position_size > 0 ? color.green :
-          strategy.position_size < 0 ? color.red : color.gray
+    nt      = strategy.closedtrades.count()
+    wr      = nt > 0 ? strategy.wintrades / nt * 100.0 : 0.0
+    pos     = strategy.position_size > 0 ? "LONG" : strategy.position_size < 0 ? "SHORT" : "FLAT"
+    pc      = strategy.position_size > 0 ? color.green : strategy.position_size < 0 ? color.red : color.gray
+    pnl_c   = strategy.netprofit >= 0 ? color.green : color.red
+    wr_c    = wr >= 50 ? color.green : color.orange
+    rsi_c   = rsi > rsiOB ? color.red : rsi < rsiOS ? color.green : color.white
+    ema_c   = fastEMA > slowEMA ? color.green : color.red
+    pnl_s   = "$" + str.tostring(strategy.netprofit, "#.00")
+    wr_s    = str.tostring(wr, "#.1") + "%"
+    rsi_s   = str.tostring(rsi, "#.1")
+    atr_s   = str.tostring(atr, "#.00")
+    ema_s   = fastEMA > slowEMA ? "BULL" : "BEAR"
 
-    table.cell(tbl,0,0,"DTA Pro v2",   text_color=color.yellow, text_size=size.small, bgcolor=color.new(color.black,50))
-    table.cell(tbl,1,0,"",             text_color=color.yellow, text_size=size.small, bgcolor=color.new(color.black,50))
-    table.cell(tbl,0,1,"Position",     text_color=color.gray,   text_size=size.small)
-    table.cell(tbl,1,1,pos,            text_color=pc,           text_size=size.small)
-    table.cell(tbl,0,2,"Net P&L",      text_color=color.gray,   text_size=size.small)
-    table.cell(tbl,1,2,"$"+str.tostring(strategy.netprofit,"#.00"),
-               text_color=strategy.netprofit>=0?color.green:color.red, text_size=size.small)
-    table.cell(tbl,0,3,"Win Rate",     text_color=color.gray,   text_size=size.small)
-    table.cell(tbl,1,3,str.tostring(wr,"#.1")+"%",
-               text_color=wr>=50?color.green:color.orange,      text_size=size.small)
-    table.cell(tbl,0,4,"# Trades",     text_color=color.gray,   text_size=size.small)
-    table.cell(tbl,1,4,str.tostring(nt),text_color=color.white, text_size=size.small)
-    table.cell(tbl,0,5,"RSI(14)",      text_color=color.gray,   text_size=size.small)
-    table.cell(tbl,1,5,str.tostring(rsi,"#.1"),
-               text_color=rsi>rsiOB?color.red:rsi<rsiOS?color.green:color.white,
-               text_size=size.small)
-    table.cell(tbl,0,6,"ATR(14)",      text_color=color.gray,   text_size=size.small)
-    table.cell(tbl,1,6,str.tostring(atr,"#.00"),text_color=color.white, text_size=size.small)
-    table.cell(tbl,0,7,"EMA9>21?",     text_color=color.gray,   text_size=size.small)
-    table.cell(tbl,1,7,fastEMA>slowEMA?"BULL":"BEAR",
-               text_color=fastEMA>slowEMA?color.green:color.red, text_size=size.small)`;
+    table.cell(tbl, 0, 0, "DTA Pro v2", text_color=color.yellow, text_size=size.small, bgcolor=color.new(color.black, 50))
+    table.cell(tbl, 1, 0, "",           text_color=color.yellow, text_size=size.small, bgcolor=color.new(color.black, 50))
+    table.cell(tbl, 0, 1, "Position",   text_color=color.gray,   text_size=size.small)
+    table.cell(tbl, 1, 1, pos,          text_color=pc,           text_size=size.small)
+    table.cell(tbl, 0, 2, "Net P&L",    text_color=color.gray,   text_size=size.small)
+    table.cell(tbl, 1, 2, pnl_s,        text_color=pnl_c,        text_size=size.small)
+    table.cell(tbl, 0, 3, "Win Rate",   text_color=color.gray,   text_size=size.small)
+    table.cell(tbl, 1, 3, wr_s,         text_color=wr_c,         text_size=size.small)
+    table.cell(tbl, 0, 4, "# Trades",   text_color=color.gray,   text_size=size.small)
+    table.cell(tbl, 1, 4, str.tostring(nt), text_color=color.white, text_size=size.small)
+    table.cell(tbl, 0, 5, "RSI(14)",    text_color=color.gray,   text_size=size.small)
+    table.cell(tbl, 1, 5, rsi_s,        text_color=rsi_c,        text_size=size.small)
+    table.cell(tbl, 0, 6, "ATR(14)",    text_color=color.gray,   text_size=size.small)
+    table.cell(tbl, 1, 6, atr_s,        text_color=color.white,  text_size=size.small)
+    table.cell(tbl, 0, 7, "EMA Trend",  text_color=color.gray,   text_size=size.small)
+    table.cell(tbl, 1, 7, ema_s,        text_color=ema_c,        text_size=size.small)`;
 
 /* ── INIT ── */
 loadProgress();
