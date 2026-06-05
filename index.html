@@ -6634,13 +6634,9 @@ if shortCond
 // ════════════════════════════════════════════
 // VISUALS — EMA LINES
 // ════════════════════════════════════════════
-plot(fastEMA, "EMA " + str.tostring(fastLen),
-     color=color.new(color.blue,   0), linewidth=2)
-plot(slowEMA, "EMA " + str.tostring(slowLen),
-     color=color.new(color.orange, 0), linewidth=2)
-plot(useTrend ? trendEMA : na,
-     "Trend EMA " + str.tostring(trendLen),
-     color=color.new(color.gray, 55), linewidth=1)
+plot(fastEMA,  "EMA 9",        color=color.new(color.blue,   0), linewidth=2)
+plot(slowEMA,  "EMA 21",       color=color.new(color.orange, 0), linewidth=2)
+plot(useTrend ? trendEMA : na, "Trend EMA 50", color=color.new(color.gray, 55), linewidth=1)
 
 // Signal markers on chart
 plotshape(longCond,  "Buy Signal",  shape.triangleup,
@@ -6686,7 +6682,7 @@ var table tbl = table.new(position.top_right, 2, 8,
      border_color=color.new(color.gray, 80))
 
 if barstate.islast
-    nt      = strategy.closedtrades.count()
+    nt      = strategy.closedtrades
     wr      = nt > 0 ? strategy.wintrades / nt * 100.0 : 0.0
     pos     = strategy.position_size > 0 ? "LONG" : strategy.position_size < 0 ? "SHORT" : "FLAT"
     pc      = strategy.position_size > 0 ? color.green : strategy.position_size < 0 ? color.red : color.gray
